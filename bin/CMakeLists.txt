@@ -13,8 +13,8 @@ add_executable(save_frame
 )
 target_link_libraries(save_frame bps3D stb bps3D_debug)
 
-find_package(glfw3 3.3 QUIET)
-find_package(GLEW QUIET)
+find_package(glfw3 3.3)  # temp not quiet
+find_package(GLEW)  # temp not quiet
 
 if (glfw3_FOUND AND GLEW_FOUND)
     add_executable(fly
