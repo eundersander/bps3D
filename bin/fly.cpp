@@ -15,8 +15,8 @@
 using namespace std;
 using namespace bps3D;
 
-const float mouse_speed = 2e-4;
-const float movement_speed = 1.5;
+const float mouse_speed = 10e-4; // 2e-4;
+const float movement_speed = 6.f; // 1.5;
 const float rotate_speed = 1.25;
 
 static GLFWwindow *makeWindow(const glm::u32vec2 &dim)
@@ -122,7 +122,10 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    glm::u32vec2 img_dims(1920, 1080);
+    constexpr int tiles_x = 3;
+    constexpr int tiles_y = 4;
+    glm::u32vec2 out_dim(256, 256);
+    glm::u32vec2 img_dims(out_dim.x * tiles_x, out_dim.y * tiles_y); // (1920, 1080);
 
     GLFWwindow *window = makeWindow(img_dims);
     if (glewInit() != GLEW_OK) {
@@ -130,11 +133,13 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    array<GLuint, 2> read_fbos;
-    glCreateFramebuffers(2, read_fbos.data());
+    constexpr int num_buffers = 1;
 
-    array<GLuint, 2> render_textures;
-    glCreateTextures(GL_TEXTURE_2D, 2, render_textures.data());
+    array<GLuint, num_buffers> read_fbos;
+    glCreateFramebuffers(num_buffers, read_fbos.data());
+
+    array<GLuint, num_buffers> render_textures;
+    glCreateTextures(GL_TEXTURE_2D, num_buffers, render_textures.data());
 
     bool show_camera = false;
     if (argc > 2) {
@@ -143,15 +148,18 @@ int main(int argc, char *argv[])
         }
     }
 
+    constexpr int num_envs = tiles_x * tiles_y;
     Renderer renderer(
-        {0, 1, 1, img_dims.x, img_dims.y, true, RenderMode::UnlitRGB});
+        {0, 1, num_envs, img_dims.x / tiles_x, img_dims.y / tiles_y, num_buffers == 2, RenderMode::UnlitRGB});
+    assert(img_dims.x % tiles_x == 0);
+    assert(img_dims.y % tiles_y == 0);
 
-    array<cudaStream_t, 2> copy_streams;
+    array<cudaStream_t, num_buffers> copy_streams;
 
-    array<cudaGraphicsResource_t, 2> dst_imgs;
+    array<cudaGraphicsResource_t, num_buffers> dst_imgs;
 
     cudaError_t res;
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < num_buffers; i++) {
         glTextureStorage2D(render_textures[i], 1, GL_RGBA8, img_dims.x,
                            img_dims.y);
 
@@ -182,14 +190,33 @@ int main(int argc, char *argv[])
     glm::vec2 mouse_prev = cursorPosition(window);
 
     vector<Environment> envs;
-    envs.emplace_back(renderer.makeEnvironment(scene, cam.eye, cam.fwd, cam.up,
-                                               cam.right, 60.f));
+    for (int i = 0; i < num_envs; i++) {
+      envs.emplace_back(renderer.makeEnvironment(scene, cam.eye, cam.fwd, cam.up,
+                                                cam.right, 45.f));
+    }
 
     glfwSetKeyCallback(window, windowKeyHandler);
 
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     if (glfwRawMouseMotionSupported()) {
         glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+    }
+
+    // temp add an instance to each env
+    constexpr glm::vec3 base_position =
+      {3.87, 0.85, -0.67}; // compare to Blender convention: {3.87, 0.67, 0.85}
+
+    for (int i = 0; i < num_envs; i++) {
+      constexpr float scale = 0.01;
+      //glm::mat4x3 my_inst_mat = glm::translate(glm::mat4(1.0), glm::vec3(3.87514, 0.673866, 0.856979));
+      glm::vec3 position = base_position + glm::vec3(-i, 0, 0);
+      glm::mat4x3 my_inst_mat{
+        {scale, 0, 0},
+        {0, scale, 0},
+        {0, 0, scale},
+        position 
+      };
+      envs[i].addInstance(12, 5, my_inst_mat);
     }
 
     uint32_t prev_frame = renderer.render(envs.data());
@@ -236,7 +263,9 @@ int main(int argc, char *argv[])
         cam.up = glm::normalize(cam.up);
         cam.right = glm::normalize(cam.right);
 
-        envs[0].setCameraView(cam.eye, cam.fwd, cam.up, cam.right);
+        for (auto& env : envs) {
+          env.setCameraView(cam.eye, cam.fwd, cam.up, cam.right);
+        }
         if (show_camera) {
             cout << "E: " << glm::to_string(cam.eye) << "\n"
                  << "F: " << glm::to_string(cam.fwd) << "\n"
@@ -244,8 +273,16 @@ int main(int argc, char *argv[])
                  << "R: " << glm::to_string(cam.right) << "\n";
         }
 
-        uint32_t new_frame = renderer.render(envs.data());
-        renderer.waitForFrame(prev_frame);
+        uint32_t new_frame = -1;
+        if (num_buffers == 2) {
+          new_frame = renderer.render(envs.data());
+          renderer.waitForFrame(prev_frame);
+        } else {
+          new_frame = renderer.render(envs.data());
+          assert(new_frame == 0);
+          assert(new_frame == prev_frame);
+          renderer.waitForFrame(prev_frame);
+        }
 
         uint8_t *output = renderer.getColorPointer(prev_frame);
 
@@ -267,10 +304,33 @@ int main(int argc, char *argv[])
             abort();
         }
 
-        res = cudaMemcpy2DToArrayAsync(
-            dst_arr, 0, 0, output, img_dims.x * sizeof(uint8_t) * 4,
-            img_dims.x * sizeof(uint8_t) * 4, img_dims.y,
-            cudaMemcpyDeviceToDevice, copy_streams[prev_frame]);
+        if (num_envs > 1) {
+
+          // copy tiles
+          for (int x = 0; x < tiles_x; x++) {
+            for (int y = 0; y < tiles_y; y++) {
+              
+              int batch_idx = y * tiles_x + x; // y-major arrangement of tiles?
+              int offset = batch_idx * out_dim.x * out_dim.y * 4;
+
+              res = cudaMemcpy2DToArrayAsync(
+                dst_arr, 
+                out_dim.x * x * sizeof(uint8_t) * 4, 
+                out_dim.y * y, 
+                output + (out_dim.y * out_dim.x * sizeof(uint8_t) * 4) * batch_idx, 
+                out_dim.x * sizeof(uint8_t) * 4,
+                out_dim.x * sizeof(uint8_t) * 4, 
+                out_dim.y,
+                cudaMemcpyDeviceToDevice, copy_streams[prev_frame]);
+            }
+          }
+        }
+        else {
+          res = cudaMemcpy2DToArrayAsync(
+              dst_arr, 0, 0, output, img_dims.x * sizeof(uint8_t) * 4,
+              img_dims.x * sizeof(uint8_t) * 4, img_dims.y,
+              cudaMemcpyDeviceToDevice, copy_streams[prev_frame]);
+        }
 
         if (res != cudaSuccess) {
             cerr << "buffer to image copy failed " << endl;
@@ -298,14 +358,16 @@ int main(int argc, char *argv[])
         prev_frame = new_frame;
     }
 
-    cudaGraphicsUnregisterResource(dst_imgs[0]);
-    cudaGraphicsUnregisterResource(dst_imgs[1]);
+    for (int i = 0; i < num_buffers; i++) {
+      cudaGraphicsUnregisterResource(dst_imgs[i]);
+    }
 
-    cudaStreamDestroy(copy_streams[0]);
-    cudaStreamDestroy(copy_streams[1]);
+    for (int i = 0; i < num_buffers; i++) {
+      cudaStreamDestroy(copy_streams[i]);
+    }
 
-    glDeleteTextures(2, render_textures.data());
-    glDeleteFramebuffers(2, read_fbos.data());
+    glDeleteTextures(num_buffers, render_textures.data());
+    glDeleteFramebuffers(num_buffers, read_fbos.data());
 
     glfwDestroyWindow(window);
 }
