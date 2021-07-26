@@ -14,6 +14,9 @@
 
 #include "import.hpp"
 
+#include <JsonAllTypes.h>
+#include <json.h>
+
 using namespace std;
 
 namespace bps3D {
@@ -347,6 +350,29 @@ static MaterialMetadata stageMaterials(const vector<Material> &materials,
     };
 }
 
+namespace {
+
+struct SceneNameMapping {
+  std::vector<std::string> materials;
+  std::vector<std::string> meshes;
+};
+
+inline habitat_io::JsonGenericValue toJsonValue(const SceneNameMapping& x,
+                                    habitat_io::JsonAllocator& allocator) {
+  habitat_io::JsonGenericValue obj(rapidjson::kObjectType);
+  habitat_io::addMember(obj, "materials", x.materials, allocator);
+  habitat_io::addMember(obj, "meshes", x.meshes, allocator);
+  return obj;
+}
+
+// bool fromJsonValue(const habitat_io::JsonGenericValue& obj, SceneNameMapping& x) {
+//   habitat_io::readMember(obj, "materials", x.materials);
+//   habitat_io::readMember(obj, "meshes", x.meshes);
+//   return true;
+// }
+
+}
+
 void ScenePreprocessor::dump(string_view out_path_name)
 {
     auto processed_geometry = processGeometry(scene_data_->desc);
@@ -356,16 +382,27 @@ void ScenePreprocessor::dump(string_view out_path_name)
     basename.resize(basename.rfind('.'));
 
     // Write this out to some file derived from basename instead
-    cout << "Material IDs" << endl;
+    SceneNameMapping mapping;
+
+    // cout << "Material IDs" << endl;
     for (int mat_idx = 0; mat_idx < (int)scene_data_->desc.materials.size(); mat_idx++) {
         const auto &mat = scene_data_->desc.materials[mat_idx];
-        cout << mat.name << " " << mat_idx << endl;
+        // cout << mat.name << " " << mat_idx << endl;
+        mapping.materials.push_back(mat.name);
     }
 
-    cout << "Mesh IDs" << endl;
+    // cout << "Mesh IDs" << endl;
     for (int mesh_idx = 0; mesh_idx < (int)processed_geometry.meshes.size(); mesh_idx++) {
         const auto &mesh = processed_geometry.meshes[mesh_idx];
-        cout << mesh.name << " " << mesh_idx << endl;
+        // cout << mesh.name << " " << mesh_idx << endl;
+        mapping.meshes.push_back(mesh.name);
+    }
+
+    {
+      rapidjson::Document document(rapidjson::kObjectType);
+      rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
+      habitat_io::addMember(document, "mapping", mapping, allocator);
+      habitat_io::writeJsonToFile(document, std::string(out_path_name) + ".mapping.json");
     }
 
     ofstream out(out_path, ios::binary);

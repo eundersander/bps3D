@@ -1,7 +1,7 @@
 add_executable(preprocess
     preprocess.cpp
 )
-target_link_libraries(preprocess bps3D_preprocess)
+target_link_libraries(preprocess bps3D_preprocess habitat_io)
 
 add_executable(singlebench
     singlebench.cpp
