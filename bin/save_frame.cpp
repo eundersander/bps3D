@@ -105,10 +105,10 @@ int main(int argc, char *argv[])
     float *base_depth_ptr = renderer.getDepthPointer();
 
     for (uint32_t batch_idx = 0; batch_idx < batch_size; batch_idx++) {
-        saveFrame(("/tmp/out_color_" + to_string(batch_idx) + ".bmp").c_str(),
+        saveFrame(("./out_color_" + to_string(batch_idx) + ".bmp").c_str(),
                   base_color_ptr + batch_idx * out_dim.x * out_dim.y * 4,
                   out_dim.x, out_dim.y, 4);
-        saveFrame(("/tmp/out_depth_" + to_string(batch_idx) + ".bmp").c_str(),
+        saveFrame(("./out_depth_" + to_string(batch_idx) + ".bmp").c_str(),
                   base_depth_ptr + batch_idx * out_dim.x * out_dim.y,
                   out_dim.x, out_dim.y, 1);
     }
