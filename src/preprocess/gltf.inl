@@ -206,7 +206,7 @@ GLTFScene gltfLoad(filesystem::path gltf_path) noexcept
                 tex_idx = scene.textures.size();
             }
 
-            glm::vec4 base_color(0.f);
+            glm::vec4 base_color(1.f, 1.f, 1.f, 1.f);
             simdjson::dom::array base_color_json;
             auto color_err = pbr["baseColorFactor"].get(base_color_json);
             if (!color_err) {
