@@ -402,7 +402,9 @@ void ScenePreprocessor::dump(string_view out_path_name)
       rapidjson::Document document(rapidjson::kObjectType);
       rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
       habitat_io::addMember(document, "mapping", mapping, allocator);
-      habitat_io::writeJsonToFile(document, std::string(out_path_name) + ".mapping.json");
+      const auto filepath = std::string(out_path_name) + ".mapping.json";
+      habitat_io::writeJsonToFile(document, filepath);
+      std::cout << "wrote mapping to " << filepath << std::endl;
     }
 
     ofstream out(out_path, ios::binary);
