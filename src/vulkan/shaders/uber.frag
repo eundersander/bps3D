@@ -104,8 +104,14 @@ vec4 compute_color()
 {
     MaterialParams params = material_params[iface.materialIndex];
 
-    return texture(sampler2D(textures[params.texIdxs.x],
-                             texture_sampler), iface.uv, 0.f);
+    vec3 diffuse = params.baseAlbedo;
+
+    if (params.texIdxs.x != -1) {
+        diffuse *= texture(sampler2D(textures[params.texIdxs.x],
+                                     texture_sampler), iface.uv, 0.f).xyz;
+    }
+
+    return vec4(diffuse, 1.f);
 }
 
 #endif
