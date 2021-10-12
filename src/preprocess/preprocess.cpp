@@ -14,8 +14,10 @@
 
 #include "import.hpp"
 
+#ifdef BPS3D_INCLUDE_HABITAT_IO
 #include <JsonAllTypes.h>
 #include <json.h>
+#endif
 
 using namespace std;
 
@@ -352,6 +354,7 @@ static MaterialMetadata stageMaterials(const vector<Material> &materials,
 
 namespace {
 
+#ifdef BPS3D_INCLUDE_HABITAT_IO
 struct SceneNameMapping {
   std::vector<std::string> materials;
   std::vector<std::string> meshes;
@@ -370,6 +373,7 @@ inline habitat_io::JsonGenericValue toJsonValue(const SceneNameMapping& x,
 //   habitat_io::readMember(obj, "meshes", x.meshes);
 //   return true;
 // }
+#endif
 
 }
 
@@ -378,6 +382,7 @@ void ScenePreprocessor::dump(string_view out_path_name)
     auto processed_geometry = processGeometry(scene_data_->desc);
 
     filesystem::path out_path(out_path_name);
+#ifdef BPS3D_INCLUDE_HABITAT_IO
     string basename = out_path.filename();
     basename.resize(basename.rfind('.'));
 
@@ -406,6 +411,7 @@ void ScenePreprocessor::dump(string_view out_path_name)
       habitat_io::writeJsonToFile(document, filepath);
       std::cout << "wrote mapping to " << filepath << std::endl;
     }
+#endif
 
     ofstream out(out_path, ios::binary);
     auto write = [&](auto val) {

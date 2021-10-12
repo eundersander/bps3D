@@ -109,8 +109,9 @@ target_link_libraries(ktx PRIVATE
 add_library(stb INTERFACE)
 target_include_directories(stb SYSTEM INTERFACE stb)
 
+if (BPS3D_INCLUDE_HABITAT_IO)
 # add_subdirectory(rapidjson)
 find_package(RapidJSON CONFIG REQUIRED)
 include_directories(SYSTEM ${RapidJSON_INCLUDE_DIR})
-
 add_subdirectory(habitat_io)
+endif()
