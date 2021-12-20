@@ -52,8 +52,10 @@ static PreprocessData parseSceneData(string_view scene_path,
 ScenePreprocessor::ScenePreprocessor(string_view gltf_path,
                                      const glm::mat4 &base_txfm,
                                      optional<string_view> texture_dir,
-                                     bool dump_textures)
-    : scene_data_(new PreprocessData(
+                                     bool dump_textures,
+                                     bool doWriteInstances)
+    : doWriteInstances_(doWriteInstances)
+    , scene_data_(new PreprocessData(
           parseSceneData(gltf_path, base_txfm, texture_dir, dump_textures)))
 {}
 
@@ -356,15 +358,27 @@ namespace {
 
 #ifdef BPS3D_INCLUDE_HABITAT_IO
 struct SceneNameMapping {
-  std::vector<std::string> materials;
-  std::vector<std::string> meshes;
+  struct MeshMapping {
+      std::string name;
+      int meshIdx;
+      int mtrlIdx;
+  };
+  std::vector<MeshMapping> meshMappings;
 };
+
+inline habitat_io::JsonGenericValue toJsonValue(const SceneNameMapping::MeshMapping& x,
+                                    habitat_io::JsonAllocator& allocator) {
+  habitat_io::JsonGenericValue obj(rapidjson::kObjectType);
+  habitat_io::addMember(obj, "name", x.name, allocator);
+  habitat_io::addMember(obj, "meshIdx", x.meshIdx, allocator);
+  habitat_io::addMember(obj, "mtrlIdx", x.mtrlIdx, allocator);
+  return obj;
+}
 
 inline habitat_io::JsonGenericValue toJsonValue(const SceneNameMapping& x,
                                     habitat_io::JsonAllocator& allocator) {
   habitat_io::JsonGenericValue obj(rapidjson::kObjectType);
-  habitat_io::addMember(obj, "materials", x.materials, allocator);
-  habitat_io::addMember(obj, "meshes", x.meshes, allocator);
+  habitat_io::addMember(obj, "meshMappings", x.meshMappings, allocator);
   return obj;
 }
 
@@ -377,30 +391,28 @@ inline habitat_io::JsonGenericValue toJsonValue(const SceneNameMapping& x,
 
 }
 
-void ScenePreprocessor::dump(string_view out_path_name)
-{
-    auto processed_geometry = processGeometry(scene_data_->desc);
+namespace {
 
-    filesystem::path out_path(out_path_name);
+template <typename VertexType>
+void writeSceneNameMapping(const SceneDescription<Vertex, Material>& desc,
+    const ProcessedGeometry<VertexType>& geometry,
+    const vector<uint32_t> &mesh_id_remap, string_view out_path_name) {
 #ifdef BPS3D_INCLUDE_HABITAT_IO
-    string basename = out_path.filename();
-    basename.resize(basename.rfind('.'));
 
-    // Write this out to some file derived from basename instead
+    const auto& meshes = geometry.meshes;
+
+    const vector<InstanceProperties> &instances = desc.defaultInstances;
+
     SceneNameMapping mapping;
 
-    // cout << "Material IDs" << endl;
-    for (int mat_idx = 0; mat_idx < (int)scene_data_->desc.materials.size(); mat_idx++) {
-        const auto &mat = scene_data_->desc.materials[mat_idx];
-        // cout << mat.name << " " << mat_idx << endl;
-        mapping.materials.push_back(mat.name);
-    }
+    for (const InstanceProperties &orig_inst : instances) {
+        uint32_t new_mesh_id = mesh_id_remap[orig_inst.meshIndex];
+        if (new_mesh_id == ~0U) continue;
 
-    // cout << "Mesh IDs" << endl;
-    for (int mesh_idx = 0; mesh_idx < (int)processed_geometry.meshes.size(); mesh_idx++) {
-        const auto &mesh = processed_geometry.meshes[mesh_idx];
-        // cout << mesh.name << " " << mesh_idx << endl;
-        mapping.meshes.push_back(mesh.name);
+        mapping.meshMappings.push_back({
+            meshes[new_mesh_id].name,
+            new_mesh_id,
+            orig_inst.materialIndex});
     }
 
     {
@@ -412,6 +424,15 @@ void ScenePreprocessor::dump(string_view out_path_name)
       std::cout << "wrote mapping to " << filepath << std::endl;
     }
 #endif
+}
+
+}
+
+void ScenePreprocessor::dump(string_view out_path_name)
+{
+    auto processed_geometry = processGeometry(scene_data_->desc);
+
+    filesystem::path out_path(out_path_name);
 
     ofstream out(out_path, ios::binary);
     auto write = [&](auto val) {
@@ -527,22 +548,28 @@ void ScenePreprocessor::dump(string_view out_path_name)
 
     auto write_instances = [&](const auto &desc,
                                const vector<uint32_t> &mesh_id_remap) {
-        const vector<InstanceProperties> &instances = desc.defaultInstances;
-        uint32_t num_instances = instances.size();
-        for (const InstanceProperties &orig_inst : instances) {
-            if (mesh_id_remap[orig_inst.meshIndex] == ~0U) {
-                num_instances--;
+
+        if (doWriteInstances_) {
+            const vector<InstanceProperties> &instances = desc.defaultInstances;
+            uint32_t num_instances = instances.size();
+            for (const InstanceProperties &orig_inst : instances) {
+                if (mesh_id_remap[orig_inst.meshIndex] == ~0U) {
+                    num_instances--;
+                }
             }
-        }
 
-        write(uint32_t(num_instances));
-        for (const InstanceProperties &orig_inst : instances) {
-            uint32_t new_mesh_id = mesh_id_remap[orig_inst.meshIndex];
-            if (new_mesh_id == ~0U) continue;
+            write(uint32_t(num_instances));
+            for (const InstanceProperties &orig_inst : instances) {
+                uint32_t new_mesh_id = mesh_id_remap[orig_inst.meshIndex];
+                if (new_mesh_id == ~0U) continue;
 
-            write(uint32_t(new_mesh_id));
-            write(uint32_t(orig_inst.materialIndex));
-            write(orig_inst.txfm);
+                write(uint32_t(new_mesh_id));
+                write(uint32_t(orig_inst.materialIndex));
+                write(orig_inst.txfm);
+            }
+        } else {
+            constexpr uint32_t num_instances = 0;
+            write(uint32_t(num_instances));
         }
     };
 
@@ -563,6 +590,9 @@ void ScenePreprocessor::dump(string_view out_path_name)
 
         write_textures(material_metadata);
 
+        writeSceneNameMapping(desc, geometry, geometry.meshIDRemap, out_path_name);
+
+        // todo: delete instances after calling writeSceneNameMapping
         write_instances(desc, geometry.meshIDRemap);
 
         write_staging(geometry, material_metadata, hdr);

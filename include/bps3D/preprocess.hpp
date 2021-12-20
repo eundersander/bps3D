@@ -15,12 +15,14 @@ public:
     ScenePreprocessor(std::string_view gltf_path,
                       const glm::mat4 &base_txfm,
                       std::optional<std::string_view> texture_dir,
-                      bool dump_textures);
+                      bool dump_textures,
+                      bool doWriteInstances);
 
     void dump(std::string_view out_path);
 
 private:
     Handle<PreprocessData> scene_data_;
+    bool doWriteInstances_ = true;
 };
 
 }

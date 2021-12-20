@@ -12,7 +12,7 @@ int main(int argc, const char *argv[])
     if (argc < 3) {
         cerr
             << argv[0]
-            << " SRC DST [X_AXIS Y_AXIS Z_AXIS] [TEXTURE_DIR] [--texture-dump]"
+            << " SRC DST [X_AXIS Y_AXIS Z_AXIS] [TEXTURE_DIR] [--texture-dump] [--no-write-instances]"
             << endl;
         exit(EXIT_FAILURE);
     }
@@ -63,14 +63,23 @@ int main(int argc, const char *argv[])
     }
 
     bool dump_textures = false;
-    if (argc > 7 && !strcmp(argv[7], "--texture-dump")) {
-        dump_textures = true;
+    bool doWriteInstances = true;
+
+    for (int i = 7; i < argc; i++) {
+        if (!strcmp(argv[i], "--texture-dump")) {
+            dump_textures = true;
+        } else if (!strcmp(argv[i], "--no-write-instances")) {
+            doWriteInstances = false;
+        } else {
+            cout << "unrecognized argument: " << argv[i] << endl;
+            exit(1);
+        }
     }
 
     cout << "Transform:\n" << glm::to_string(base_txfm) << endl;
 
     bps3D::ScenePreprocessor dumper(argv[1], base_txfm, texture_dir,
-                                    dump_textures);
+                                    dump_textures, doWriteInstances);
 
     dumper.dump(argv[2]);
 

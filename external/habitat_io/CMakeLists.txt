@@ -12,7 +12,6 @@ add_library(
 
 target_link_libraries(
   habitat_io
-  PRIVATE rapidjson
 )
 
 target_include_directories(habitat_io

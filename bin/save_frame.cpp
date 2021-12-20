@@ -82,13 +82,15 @@ int main(int argc, char *argv[])
     auto scene = loader.loadScene(argv[1]);
     vector<Environment> envs;
 
-    glm::mat4 base(glm::inverse(glm::mat4(-1.19209e-07, 0, 1, 0, 0, 1, 0, 0,
-                                          -1, 0, -1.19209e-07, 0, -3.38921,
-                                          1.62114, -3.34509, 1)));
+    glm::mat4 base(glm::inverse(glm::mat4(
+        -1.19209e-07, 0, 1, 0, 
+        0, 1, 0, 0,
+        -1, 0, -1.19209e-07, 0,
+        0, 1.62114, 0, 1)));
 
     for (uint32_t batch_idx = 0; batch_idx < batch_size; batch_idx++) {
         glm::mat4 r =
-            glm::rotate(glm::radians(10.f * batch_idx), glm::vec3(0, 1, 0));
+            glm::rotate(glm::radians(45.f * batch_idx), glm::vec3(0, 1, 0));
 
         glm::mat4 view = r * base;
 
