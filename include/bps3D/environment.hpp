@@ -71,6 +71,12 @@ public:
 
     inline void setInstanceMaterial(uint32_t inst_id, uint32_t material_idx);
 
+    inline void setCamera(const glm::mat4 &world_to_camera,
+        float horizontal_fov,
+        float aspect_ratio,
+        float near,
+        float far);
+
     inline void setCameraView(const glm::mat4 &world_to_camera);
     inline void setCameraView(const glm::vec3 &position,
                               const glm::vec3 &fwd,

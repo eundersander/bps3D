@@ -114,6 +114,17 @@ void Environment::setInstanceMaterial(uint32_t inst_id, uint32_t material_idx)
     materials_[p.first][p.second] = material_idx;
 }
 
+void Environment::setCamera(const glm::mat4 &world_to_camera,
+    float horizontal_fov,
+    float aspect_ratio,
+    float near,
+    float far) {
+
+    Camera cam(world_to_camera, horizontal_fov, aspect_ratio, near, far);
+
+    camera_ = cam;
+}
+
 void Environment::setCameraView(const glm::mat4 &world_to_camera)
 {
     camera_.updateView(world_to_camera);
