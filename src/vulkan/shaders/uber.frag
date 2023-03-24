@@ -1,3 +1,4 @@
+// Copyright (c) Meta Platforms, Inc. All Rights Reserved
 #version 450
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_EXT_scalar_block_layout : require

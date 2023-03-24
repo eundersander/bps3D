@@ -1,3 +1,4 @@
+# Copyright (c) Meta Platforms, Inc. All Rights Reserved
 add_executable(preprocess
     preprocess.cpp
 )

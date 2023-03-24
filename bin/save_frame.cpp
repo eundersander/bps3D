@@ -1,3 +1,4 @@
+// Copyright (c) Meta Platforms, Inc. All Rights Reserved
 #include <bps3D.hpp>
 #include <bps3D/debug.hpp>
 

@@ -1,3 +1,4 @@
+# Copyright (c) Meta Platforms, Inc. All Rights Reserved
 add_library(
   habitat_io SHARED
   io.cpp

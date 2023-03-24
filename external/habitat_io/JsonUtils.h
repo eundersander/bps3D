@@ -1,3 +1,4 @@
+// Copyright (c) Meta Platforms, Inc. All Rights Reserved
 // Copyright (c) Facebook, Inc. and its affiliates.
 // This source code is licensed under the MIT license found at https://github.com/facebookresearch/habitat-sim/blob/master/LICENSE
 

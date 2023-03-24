@@ -1,3 +1,4 @@
+# Copyright (c) Meta Platforms, Inc. All Rights Reserved
 if (BPS3D_INCLUDE_HABITAT_IO)
 message("BPS3D_INCLUDE_HABITAT_IO enabled for preprocess")
 add_definitions(-DBPS3D_INCLUDE_HABITAT_IO)

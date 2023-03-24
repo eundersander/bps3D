@@ -1,3 +1,4 @@
+// Copyright (c) Meta Platforms, Inc. All Rights Reserved
 #pragma once
 
 #include <bps3D/utils.hpp>
